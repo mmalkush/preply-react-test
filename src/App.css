@@ -1,12 +1,12 @@
 .online {
-	color: green;
+  color: green;
 }
 
 .offline {
-	color: red;
+  color: red;
 }
 
 .controlBtn {
-	width: 100px;
-	height: 40px;
+  width: 100px;
+  height: 40px;
 }

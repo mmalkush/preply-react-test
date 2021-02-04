@@ -1,4 +1,5 @@
-import React from "react";
+// @flow
+import React, { useRef, useEffect, useState } from "react";
 import { NotificationContainer, NotificationManager } from "react-notifications";
 import "react-notifications/lib/notifications.css";
 import OnlineStatusMock from "./OnlineStatusMock";
@@ -11,38 +12,58 @@ Just keep rendering <OnlineStatusMock />
 */
 
 const withOnlineStatus = (WrappedComponent) =>
-  class WithOnlineStatus extends React.Component {
-    constructor(props) {
-      super(props);
-      this.state = { isOnline: false };
-    }
-    render() {
-      const { isOnline } = this.state;
-      return (
-        <>
-          <OnlineStatusMock onIsOnlineChange={(isOnline) => this.setState({ isOnline })} />
-          <WrappedComponent {...this.props} isOnline={isOnline} />
-        </>
-      );
-    }
-  };
+  function (props) {
+    const [isOnline, setIsOnline] = useState(false);
 
-class App extends React.Component {
-  componentDidUpdate({ isOnline }) {
-    NotificationManager.info(isOnline ? "Online" : "Offline");
-  }
-
-  render() {
-    const { isOnline } = this.props;
     return (
       <>
-        <div className={isOnline ? "online" : "offline"}>
-          {isOnline ? "Online" : "Offline"}
-          <NotificationContainer />
-        </div>
+        <OnlineStatusMock onIsOnlineChange={setIsOnline} />
+        <WrappedComponent {...props} isOnline={isOnline} />
       </>
     );
-  }
+  };
+
+type AppProps = {
+  isOnline: boolean,
+};
+
+function App(props: AppProps) {
+  const onlineState = useRef(props.isOnline);
+  const lastOfflineTime = useRef(props.isOnline ? null : Date.now());
+  const notificationTimeout = useRef(null);
+  const statusUpdateDelta = 1000;
+  const offlineUpdateDelta = 1000;
+
+  useEffect(() => {
+    if (props.isOnline !== onlineState.current) {
+      onlineState.current = props.isOnline;
+
+      if (notificationTimeout.current) clearTimeout(notificationTimeout.current);
+
+      let hideNotification = false;
+      const nowTime = Date.now();
+
+      if (props.isOnline) {
+        lastOfflineTime.current = nowTime;
+      } else {
+        // hide notification for fast offline->online->offline case
+        hideNotification = lastOfflineTime.current && nowTime - lastOfflineTime.current < offlineUpdateDelta;
+      }
+
+      if (!hideNotification) {
+        notificationTimeout.current = setTimeout(() => {
+          NotificationManager.info(props.isOnline ? "Online" : "Offline");
+        }, statusUpdateDelta);
+      }
+    }
+  });
+
+  return (
+    <div className={props.isOnline ? "online" : "offline"}>
+      {props.isOnline ? "Online" : "Offline"}
+      <NotificationContainer />
+    </div>
+  );
 }
 
 export default withOnlineStatus(App);
